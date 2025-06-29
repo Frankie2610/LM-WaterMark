@@ -9,7 +9,6 @@
       href="https://avatars.githubusercontent.com/u/119769481?v=4"
       type="image/png"
     />
-
     <style>
       body {
         font-family: "Segoe UI", sans-serif;
@@ -25,16 +24,16 @@
       }
       .upload-controls {
         display: flex;
-        justify-content: space-between;
+        flex-direction: column;
         align-items: center;
-        flex-wrap: wrap;
+        gap: 10px;
         margin-bottom: 30px;
       }
       input[type="file"] {
         padding: 10px 18px;
         border: 2px solid #333;
         border-radius: 6px;
-        background-color: #fff;
+        background: #fff;
         font-size: 16px;
         cursor: pointer;
         transition: all 0.3s;
@@ -45,15 +44,20 @@
       button {
         padding: 10px 20px;
         font-size: 16px;
-        background-color: #222;
+        background: #222;
         color: #fff;
         border: none;
         border-radius: 6px;
         cursor: pointer;
-        transition: background-color 0.3s;
+        transition: background 0.3s;
       }
       button:hover {
-        background-color: #444;
+        background: #444;
+      }
+      .notice {
+        font-size: 14px;
+        color: #555;
+        text-align: center;
       }
       .grid {
         display: grid;
@@ -76,6 +80,25 @@
         height: auto;
         display: block;
       }
+      .remove-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: #ff5555;
+        color: #fff;
+        font-size: 20px;
+        line-height: 28px;
+        text-align: center;
+        cursor: pointer;
+        border: none;
+        padding: 0px !important;
+      }
+      .remove-btn:hover {
+        background: #ff2222;
+      }
       .footer-note {
         text-align: center;
         margin-top: 50px;
@@ -90,7 +113,7 @@
         left: 0;
         width: 100vw;
         height: 100vh;
-        background-color: rgba(0, 0, 0, 0.85);
+        background: rgba(0, 0, 0, 0.85);
         justify-content: center;
         align-items: center;
       }
@@ -105,6 +128,7 @@
     <h1>L&M Luxury Timepieces</h1>
     <div class="upload-controls">
       <input type="file" multiple accept="image/*" id="fileInput" />
+      <p class="notice">Hoặc Ctrl+V để dán ảnh từ clipboard.</p>
       <button onclick="downloadAll()">Tải về tất cả ảnh</button>
     </div>
     <div class="grid" id="preview"></div>
@@ -124,69 +148,90 @@
 
       fileInput.addEventListener("change", handleFiles);
 
+      document.addEventListener("paste", (event) => {
+        for (let item of event.clipboardData.items) {
+          if (item.type.indexOf("image") !== -1) {
+            processFile(item.getAsFile());
+          }
+        }
+      });
+
       function handleFiles() {
-        preview.innerHTML = "";
-        watermarkedImages = [];
-        const files = Array.from(fileInput.files);
+        Array.from(fileInput.files).forEach(processFile);
+      }
 
-        files.forEach((file) => {
-          const reader = new FileReader();
-          reader.onload = function (event) {
-            const img = new Image();
-            img.onload = function () {
-              const squareSize = Math.min(img.width, img.height);
+      function processFile(file) {
+        const reader = new FileReader();
+        reader.onload = function (event) {
+          const img = new Image();
+          img.onload = function () {
+            const squareSize = Math.min(img.width, img.height);
+            const sx = (img.width - squareSize) / 2;
+            const sy = (img.height - squareSize) / 2;
 
-              const sx = (img.width - squareSize) / 2;
-              const sy = (img.height - squareSize) / 2;
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+            canvas.width = squareSize;
+            canvas.height = squareSize;
 
-              const canvas = document.createElement("canvas");
-              const ctx = canvas.getContext("2d");
-              canvas.width = squareSize;
-              canvas.height = squareSize;
+            ctx.drawImage(
+              img,
+              sx,
+              sy,
+              squareSize,
+              squareSize,
+              0,
+              0,
+              squareSize,
+              squareSize
+            );
 
-              ctx.drawImage(
-                img,
-                sx,
-                sy,
-                squareSize,
-                squareSize,
-                0,
-                0,
-                squareSize,
-                squareSize
+            // Watermark
+            const text = "L&M Luxury Timepieces";
+            const fontSize = squareSize * 0.02;
+            ctx.font = `${fontSize}px Arial`;
+            ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+            ctx.textAlign = "left";
+
+            const repeatSpacing = ctx.measureText(text).width + 50;
+            const y = (squareSize * 3) / 5;
+
+            for (let x = 0; x < squareSize; x += repeatSpacing) {
+              ctx.fillText(text, x, y);
+            }
+
+            const watermarkedURL = canvas.toDataURL("image/png");
+            const index = watermarkedImages.length + 1;
+            watermarkedImages.push({
+              name: `image${index}.png`,
+              url: watermarkedURL,
+            });
+
+            const wrapper = document.createElement("div");
+            wrapper.className = "image-wrapper";
+            wrapper.innerHTML = `
+            <button class="remove-btn" title="Xoá ảnh">&times;</button>
+            <img src="${watermarkedURL}" alt="Preview" />
+          `;
+
+            wrapper.querySelector(".remove-btn").onclick = (e) => {
+              e.stopPropagation();
+              watermarkedImages = watermarkedImages.filter(
+                (i) => i.url !== watermarkedURL
               );
-
-              // Watermark
-              const text = "L&M Luxury Timepieces";
-              const fontSize = squareSize * 0.02;
-              ctx.font = `${fontSize}px Arial`;
-              ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
-              ctx.textAlign = "left";
-
-              const repeatSpacing = ctx.measureText(text).width + 50;
-              const y = (squareSize * 3) / 5;
-
-              for (let x = 0; x < squareSize; x += repeatSpacing) {
-                ctx.fillText(text, x, y);
-              }
-
-              const watermarkedURL = canvas.toDataURL("image/png");
-              watermarkedImages.push({ name: file.name, url: watermarkedURL });
-
-              const wrapper = document.createElement("div");
-              wrapper.className = "image-wrapper";
-              wrapper.innerHTML = `<img src="${watermarkedURL}" alt="Preview" />`;
-              wrapper.onclick = () => {
-                zoomedImage.src = watermarkedURL;
-                zoomModal.style.display = "flex";
-              };
-
-              preview.appendChild(wrapper);
+              wrapper.remove();
             };
-            img.src = event.target.result;
+
+            wrapper.onclick = () => {
+              zoomedImage.src = watermarkedURL;
+              zoomModal.style.display = "flex";
+            };
+
+            preview.appendChild(wrapper);
           };
-          reader.readAsDataURL(file);
-        });
+          img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
       }
 
       function downloadAll() {
@@ -199,7 +244,6 @@
             .then((res) => res.blob())
             .then((blob) => folder.file(name, blob));
         });
-
         Promise.all(promises).then(() => {
           zip.generateAsync({ type: "blob" }).then((content) => {
             const a = document.createElement("a");
