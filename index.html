@@ -158,7 +158,7 @@
               ctx.textAlign = "left";
 
               const repeatSpacing = ctx.measureText(text).width + 50;
-              const y = squareSize / 2;
+              const y = (squareSize * 3) / 5;
 
               for (let x = 0; x < squareSize; x += repeatSpacing) {
                 ctx.fillText(text, x, y);
