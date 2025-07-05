@@ -12,7 +12,7 @@
     <style>
       body {
         font-family: "Segoe UI", sans-serif;
-        background-color: #fdfdfd;
+        background: #fdfdfd;
         padding: 30px 60px;
         margin: 0;
       }
@@ -36,7 +36,6 @@
         background: #fff;
         font-size: 16px;
         cursor: pointer;
-        transition: all 0.3s;
       }
       input[type="file"]:hover {
         border-color: #000;
@@ -49,7 +48,9 @@
         border: none;
         border-radius: 6px;
         cursor: pointer;
-        transition: background 0.3s;
+      }
+      .remove-btn {
+        padding: 0px !important;
       }
       button:hover {
         background: #444;
@@ -94,7 +95,6 @@
         text-align: center;
         cursor: pointer;
         border: none;
-        padding: 0px !important;
       }
       .remove-btn:hover {
         background: #ff2222;
@@ -165,39 +165,86 @@
         reader.onload = function (event) {
           const img = new Image();
           img.onload = function () {
-            const squareSize = Math.min(img.width, img.height);
-            const sx = (img.width - squareSize) / 2;
-            const sy = (img.height - squareSize) / 2;
+            // bước 1: vẽ ảnh lên canvas tạm để lấy pixel
+            const tempCanvas = document.createElement("canvas");
+            const tempCtx = tempCanvas.getContext("2d");
+            tempCanvas.width = img.width;
+            tempCanvas.height = img.height;
+            tempCtx.drawImage(img, 0, 0);
+
+            const imageData = tempCtx.getImageData(0, 0, img.width, img.height);
+            const data = imageData.data;
+
+            // tìm bounding box
+            let minX = img.width,
+              minY = img.height,
+              maxX = 0,
+              maxY = 0;
+            for (let y = 0; y < img.height; y++) {
+              for (let x = 0; x < img.width; x++) {
+                const i = (y * img.width + x) * 4 + 3;
+                if (data[i] > 10) {
+                  // alpha threshold
+                  if (x < minX) minX = x;
+                  if (x > maxX) maxX = x;
+                  if (y < minY) minY = y;
+                  if (y > maxY) maxY = y;
+                }
+              }
+            }
+
+            if (minX > maxX || minY > maxY) {
+              // không tìm thấy pixel
+              minX = 0;
+              minY = 0;
+              maxX = img.width;
+              maxY = img.height;
+            }
+
+            const contentWidth = maxX - minX;
+            const contentHeight = maxY - minY;
+
+            // bước 2: scale content box để fit vào 1500 x 1500
+            const targetSize = 1500;
+            const scale = Math.max(
+              targetSize / contentWidth,
+              targetSize / contentHeight
+            );
+            const drawWidth = contentWidth * scale;
+            const drawHeight = contentHeight * scale;
+
+            const offsetX = (targetSize - drawWidth) / 2;
+            const offsetY = (targetSize - drawHeight) / 2;
 
             const canvas = document.createElement("canvas");
+            canvas.width = targetSize;
+            canvas.height = targetSize;
             const ctx = canvas.getContext("2d");
-            canvas.width = squareSize;
-            canvas.height = squareSize;
 
             ctx.drawImage(
               img,
-              sx,
-              sy,
-              squareSize,
-              squareSize,
-              0,
-              0,
-              squareSize,
-              squareSize
+              minX,
+              minY,
+              contentWidth,
+              contentHeight,
+              offsetX,
+              offsetY,
+              drawWidth,
+              drawHeight
             );
 
-            // Watermark
+            // watermark
             const text = "L&M Luxury Timepieces";
-            const fontSize = squareSize * 0.02;
+            const fontSize = targetSize * 0.03;
             ctx.font = `${fontSize}px Arial`;
             ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
             ctx.textAlign = "left";
 
             const repeatSpacing = ctx.measureText(text).width + 50;
-            const y = (squareSize * 3) / 5;
+            const wmY = targetSize * 0.6;
 
-            for (let x = 0; x < squareSize; x += repeatSpacing) {
-              ctx.fillText(text, x, y);
+            for (let wmx = 0; wmx < targetSize; wmx += repeatSpacing) {
+              ctx.fillText(text, wmx, wmY);
             }
 
             const watermarkedURL = canvas.toDataURL("image/png");
@@ -210,9 +257,9 @@
             const wrapper = document.createElement("div");
             wrapper.className = "image-wrapper";
             wrapper.innerHTML = `
-            <button class="remove-btn" title="Xoá ảnh">&times;</button>
-            <img src="${watermarkedURL}" alt="Preview" />
-          `;
+          <button class="remove-btn" title="Xoá ảnh">&times;</button>
+          <img src="${watermarkedURL}" alt="Preview" />
+        `;
 
             wrapper.querySelector(".remove-btn").onclick = (e) => {
               e.stopPropagation();
