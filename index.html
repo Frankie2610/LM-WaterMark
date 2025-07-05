@@ -241,7 +241,7 @@
             ctx.textAlign = "left";
 
             const repeatSpacing = ctx.measureText(text).width + 50;
-            const wmY = targetSize * 0.8;
+            const wmY = targetSize * 0.7;
 
             for (let wmx = 0; wmx < targetSize; wmx += repeatSpacing) {
               ctx.fillText(text, wmx, wmY);
